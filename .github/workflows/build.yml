@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 команда S.T.A.R.K.
+#
+# Собирает .apk при каждом изменении кода. Если поставить метку версии (например v0.1.0),
+# готовый .apk автоматически появится в разделе Releases.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Метка версии должна совпадать с файлом VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          if [ "${GITHUB_REF_NAME#v}" != "$(tr -d '[:space:]' < VERSION)" ]; then
+            echo "Метка $GITHUB_REF_NAME не совпадает с VERSION ($(cat VERSION))" >&2
+            exit 1
+          fi
+
+      - name: Сборка
+        env:
+          PLIS_KEYSTORE_B64: ${{ secrets.PLIS_KEYSTORE_B64 }}
+          PLIS_KEY_ALIAS: ${{ secrets.PLIS_KEY_ALIAS }}
+          PLIS_KS_PASS: ${{ secrets.PLIS_KS_PASS }}
+          PLIS_KEY_PASS: ${{ secrets.PLIS_KEY_PASS }}
+        run: ./build.sh
+
+      - name: Сохранить сборку
+        uses: actions/upload-artifact@v4
+        with:
+          name: plis-apk
+          path: dist/*.apk
+
+      - name: Выложить в релиз
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.apk --title "P.L.I.S. $GITHUB_REF_NAME" --generate-notes

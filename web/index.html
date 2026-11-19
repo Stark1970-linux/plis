@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<!--
+  P.L.I.S. — Pocket Lab for Interactive Schematics
+  SPDX-License-Identifier: GPL-2.0-only
+  Copyright (C) 2026 команда S.T.A.R.K.
+  Условные графические обозначения нарисованы с нуля по стандартам ГОСТ и IEC.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#14233A">
+<title>P.L.I.S. — редактор электросхем</title>
+<style>
+:root{
+  --paper:#EEF3F1; --ink:#14233A; --grid-minor:#D6E1DC; --grid-major:#B6C8C1;
+  --bar:#F9FBFA; --line:#CBD6D1; --accent:#0A8FB8; --accent-soft:#D3EEF6;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#0F1A26; --ink:#E3ECF2; --grid-minor:#1A2A39; --grid-major:#27394B;
+    --bar:#15222F; --line:#2A3B4D; --accent:#3FC1E8; --accent-soft:#14394A;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);
+  font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;overflow:hidden;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:2px;padding:calc(env(safe-area-inset-top) + 6px) 8px 6px 14px;
+  background:var(--bar);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;font-weight:700;font-size:19px;font-style:italic}
+.brand svg{width:30px;height:14px;fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round}
+button{font:inherit;color:inherit}
+.icon-btn{width:44px;height:44px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;cursor:pointer}
+.icon-btn svg,.tool svg,.menu svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.icon-btn svg{width:24px;height:24px}
+.icon-btn:active{background:var(--accent-soft)}
+.icon-btn:disabled,.tool:disabled{opacity:.3}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{position:relative;flex:1;min-height:0}
+#board{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#gmin{fill:none;stroke:var(--grid-minor);stroke-width:1}
+#gmaj{fill:none;stroke:var(--grid-major);stroke-width:1}
+#world{color:var(--ink)}
+.zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bar);
+  display:grid;place-items:center;font-size:22px;line-height:1;cursor:pointer}
+.zoom svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+#hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);max-width:calc(100% - 24px);
+  background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:999px;font-size:13px;
+  text-align:center;opacity:0;pointer-events:none;transition:opacity .25s}
+#hint.on{opacity:.95}
+nav{display:flex;background:var(--bar);border-top:1px solid var(--line);padding:6px 4px calc(env(safe-area-inset-bottom) + 6px)}
+.tool{flex:1;min-width:0;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;
+  gap:3px;padding:6px 1px;border-radius:12px;font-size:10.5px;cursor:pointer}
+.grp{grid-column:1/-1;font-size:13px;font-weight:600;padding:10px 2px 0}
+.tool svg{width:24px;height:24px}
+.tool[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+#veil{position:fixed;inset:0;background:rgba(10,20,30,.38);z-index:15}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:74%;background:var(--bar);
+  border-radius:18px 18px 0 0;border-top:1px solid var(--line);transform:translateY(105%);
+  transition:transform .22s ease;z-index:20;display:flex;flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom)}
+.sheet.open{transform:none}
+.sheet h2{margin:0;padding:14px 16px 10px;font-size:16px}
+.parts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 12px 14px;overflow:auto}
+.part{border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:8px 4px;
+  font-size:12px;display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;
+  min-height:92px;cursor:pointer}
+.part:active{background:var(--accent-soft)}
+.part svg{width:100%;height:56px;color:var(--ink)}
+.menu button{display:flex;align-items:center;gap:14px;width:100%;padding:15px 18px;border:0;
+  border-top:1px solid var(--line);background:none;font-size:16px;text-align:left;cursor:pointer}
+.menu svg{width:22px;height:22px;flex:none}
+#modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(10,20,30,.42);z-index:30;padding:20px}
+.card{width:min(380px,100%);background:var(--bar);border:1px solid var(--line);border-radius:16px;padding:18px}
+.card h2{margin:0 0 10px;font-size:18px}
+.card p{margin:0 0 12px;font-size:14px;line-height:1.4}
+.card label{display:block;font-size:13px;margin:10px 0 0}
+.card input{display:block;width:100%;margin-top:5px;padding:11px 12px;font-size:16px;border-radius:10px;
+  border:1px solid var(--line);background:var(--paper);color:var(--ink);-webkit-user-select:text;user-select:text}
+.card input:focus{outline:2px solid var(--accent);border-color:transparent}
+.row{display:flex;gap:10px;margin-top:18px}
+.row button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:transparent;font-size:15px;cursor:pointer}
+.row .main{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:600}
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:var(--ink);color:var(--paper);padding:9px 14px;border-radius:10px;font-size:14px;
+  opacity:0;pointer-events:none;transition:opacity .2s;z-index:40;max-width:90%;text-align:center}
+#toast.on{opacity:.96}
+@media (prefers-reduced-motion:reduce){.sheet,#hint,#toast{transition:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 30 14" aria-hidden="true"><path d="M1 7h5M24 7h5"/><rect x="6" y="2" width="18" height="10"/></svg>
+      P.L.I.S.
+    </div>
+    <button class="icon-btn" id="b-undo" aria-label="Отменить"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button class="icon-btn" id="b-redo" aria-label="Вернуть"><svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button class="icon-btn" id="b-menu" aria-label="Меню"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </header>
+
+  <main>
+    <svg id="board" role="img" aria-label="Холст со схемой">
+      <path id="gmin"/><path id="gmaj"/>
+      <g id="world"></g>
+    </svg>
+    <div class="zoom">
+      <button id="z-in" aria-label="Приблизить">+</button>
+      <button id="z-out" aria-label="Отдалить">−</button>
+      <button id="z-fit" aria-label="Вписать схему в экран"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+    <div id="hint"></div>
+  </main>
+
+  <nav>
+    <button class="tool" id="t-select" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M5 3.5l13 6.5-5.5 1.8L10 18.5z"/></svg><span>Выбор</span></button>
+    <button class="tool" id="t-wire" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 18h6V6h4"/></svg><span>Провод</span></button>
+    <button class="tool" id="t-node" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><path d="M3 12h5.8M15.2 12H21M12 3v5.8M12 15.2V21"/></svg><span>Узел</span></button>
+    <button class="tool" id="t-parts"><svg viewBox="0 0 24 24"><path d="M2 12h5M17 12h5"/><rect x="7" y="8.5" width="10" height="7"/></svg><span>Детали</span></button>
+    <button class="tool" id="t-rotate"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v5h-5"/></svg><span>Поворот</span></button>
+    <button class="tool" id="t-label"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg><span>Подпись</span></button>
+    <button class="tool" id="t-delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span>Удалить</span></button>
+  </nav>
+</div>
+
+<div id="veil" hidden></div>
+
+<section class="sheet" id="sheet-parts" aria-label="Детали">
+  <h2>Добавить деталь</h2>
+  <div class="parts" id="parts"></div>
+</section>
+
+<section class="sheet" id="sheet-menu" aria-label="Меню">
+  <h2>Схема</h2>
+  <div class="menu">
+    <button data-act="all"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" stroke-dasharray="3 3"/><path d="M9 12l2 2 4-4"/></svg>Выделить всё</button>
+    <button data-act="new"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>Новая схема</button>
+    <button data-act="save"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>Сохранить в файл</button>
+    <button data-act="open"><svg viewBox="0 0 24 24"><path d="M12 20V9M7 13l5-5 5 5M5 4h14"/></svg>Открыть из файла</button>
+    <button data-act="png"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 5 5"/></svg>Сохранить картинкой (PNG)</button>
+  </div>
+</section>
+
+<div id="modal" hidden></div>
+<div id="toast" role="status"></div>
+<input type="file" id="file" accept=".json,application/json" hidden>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const esc=s=>String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+const attr=s=>esc(s).replace(/"/g,'&quot;');
+
+/* ---------- стили схемы (общие для экрана и для экспорта) ---------- */
+const FONT='"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
+const SCENE_CSS=`
+.sym{fill:none;stroke:currentColor;stroke-width:.09;stroke-linecap:round;stroke-linejoin:round}
+.sym .f{fill:currentColor;stroke:none}
+.st{fill:currentColor;stroke:none;font-family:${FONT};font-weight:700}
+.sn{fill:currentColor;stroke:none;font-family:${FONT};font-weight:400;opacity:.8}
+.sel{color:var(--accent)}
+.wire{fill:none;stroke:currentColor;stroke-width:.09;stroke-linecap:round;stroke-linejoin:round}
+.wire.sel{stroke-width:.15}
+.dot{fill:currentColor}
+.lab{fill:currentColor;font-family:${FONT};font-style:italic;stroke:var(--paper);stroke-width:11px;paint-order:stroke;stroke-linejoin:round}
+.selbox{fill:var(--accent);fill-opacity:.07;stroke:var(--accent);stroke-width:.04;stroke-dasharray:.2 .15}
+.prev{fill:none;stroke:var(--accent);stroke-width:.1;stroke-dasharray:.25 .18;stroke-linecap:round;stroke-linejoin:round}
+.ring{fill:var(--accent);fill-opacity:.18;stroke:var(--accent);stroke-width:.06}
+.band{fill:var(--accent);fill-opacity:.08;stroke:var(--accent);stroke-width:.05;stroke-dasharray:.25 .18}
+`;
+document.head.appendChild(Object.assign(document.createElement('style'),{textContent:SCENE_CSS}));
+
+/* ---------- текст на схеме: рисуем крупно и уменьшаем, чтобы не мешал минимальный размер шрифта ---------- */
+function T(x,y,str,size,cls,anchor,r){
+  const k=.02;
+  return `<text class="${cls}" transform="translate(${x} ${y})${r?` rotate(${-r})`:''} scale(${k})" font-size="${size/k}" text-anchor="${anchor||'start'}" dominant-baseline="central">${esc(str)}</text>`;
+}
+function arrow(x,y,dx,dy,s){
+  const l=Math.hypot(dx,dy);dx/=l;dy/=l;
+  const bx=x-dx*s,by=y-dy*s,px=-dy*s*.4,py=dx*s*.4;
+  return `<path class="f" d="M${x} ${y}L${bx+px} ${by+py}L${bx-px} ${by-py}Z"/>`;
+}
+
+/* ---------- детали: условные графические обозначения (1 клетка = 1 единица) ---------- */
+const H2=[[-2,0,-1,0],[2,0,1,0]];
+const S={
+  resistor:{name:'Резистор',pre:'R',pins:H2,box:[-2,-.5,2,.5],
+    draw:()=>'<path d="M-2 0H-1.2M1.2 0H2"/><rect x="-1.2" y="-.45" width="2.4" height=".9"/>'},
+  varres:{name:'Переменный резистор',pre:'R',pins:H2,box:[-2,-1,2,1],
+    draw:()=>'<path d="M-2 0H-1.2M1.2 0H2"/><rect x="-1.2" y="-.45" width="2.4" height=".9"/><path d="M-.9 .9L.8 -.8"/>'+arrow(.95,-.95,1,-1,.38)},
+  capacitor:{name:'Конденсатор',pre:'C',pins:H2,box:[-2,-.9,2,.9],
+    draw:()=>'<path d="M-2 0H-.2M.2 0H2M-.2 -.8V.8M.2 -.8V.8"/>'},
+  polcap:{name:'Конденсатор полярный',pre:'C',pins:H2,box:[-2,-1.2,2,.9],
+    draw:r=>'<path d="M-2 0H-.2M.2 0H2M-.2 -.8V.8M.2 -.8V.8"/>'+T(-.8,-.85,'+',.7,'st','middle',r)},
+  inductor:{name:'Катушка',pre:'L',pins:H2,box:[-2,-.6,2,.2],
+    draw:()=>'<path d="M-2 0H-1.2a.3 .3 0 0 1 .6 0a.3 .3 0 0 1 .6 0a.3 .3 0 0 1 .6 0a.3 .3 0 0 1 .6 0H2"/>'},
+  cell:{name:'Элемент питания',pre:'G',pins:H2,box:[-2,-1.2,2,.9],
+    draw:r=>'<path d="M-2 0H-.25M.25 0H2M-.25 -.9V.9"/><path d="M.25 -.5V.5" stroke-width=".16"/>'+T(-.85,-.75,'+',.7,'st','middle',r)},
+  battery:{name:'Батарея',pre:'GB',pins:H2,box:[-2,-1.3,2,.9],
+    draw:r=>'<path d="M-2 0H-.75M.75 0H2M-.25 0H.25M-.75 -.9V.9M.25 -.9V.9"/><path d="M-.25 -.5V.5M.75 -.5V.5" stroke-width=".16"/>'+T(-1.3,-.75,'+',.7,'st','middle',r)},
+  diode:{name:'Диод',pre:'VD',pins:H2,box:[-2,-.8,2,.8],
+    draw:()=>'<path d="M-2 0H2M.7 -.7V.7"/><path d="M-.7 -.7V.7L.7 0Z"/>'},
+  led:{name:'Светодиод',pre:'VD',pins:H2,box:[-2,-1.8,2,.8],
+    draw:()=>S.diode.draw()+'<path d="M-.25 -.95L.3 -1.5M.35 -.9L.9 -1.45"/>'+arrow(.45,-1.65,1,-1,.3)+arrow(1.05,-1.6,1,-1,.3)},
+  npn:{name:'Транзистор n-p-n',pre:'VT',pins:[[-2,0,-1,0],[1,-2,0,-1],[1,2,0,1]],box:[-2,-2,1.8,2],side:'r',
+    draw:()=>'<circle cx=".25" r="1.5"/><path d="M-2 0H-.5M-.5 -.9V.9M-.5 -.35L1 -1.2V-2M-.5 .35L1 1.2V2"/>'+arrow(.8,1.08,1.5,.85,.38)},
+  pnp:{name:'Транзистор p-n-p',pre:'VT',pins:[[-2,0,-1,0],[1,-2,0,-1],[1,2,0,1]],box:[-2,-2,1.8,2],side:'r',
+    draw:()=>'<circle cx=".25" r="1.5"/><path d="M-2 0H-.5M-.5 -.9V.9M-.5 -.35L1 -1.2V-2M-.5 .35L1 1.2V2"/>'+arrow(-.2,.52,-1.5,-.85,.38)},
+  lamp:{name:'Лампа',pre:'EL',pins:H2,box:[-2,-.9,2,.9],
+    draw:()=>'<path d="M-2 0H-.8M.8 0H2M-.57 -.57L.57 .57M-.57 .57L.57 -.57"/><circle r=".8"/>'},
+  switch:{name:'Выключатель',pre:'SA',pins:H2,box:[-2,-1,2,.4],
+    draw:()=>'<path d="M-2 0H-1M1 0H2M-1 0L.9 -.8"/><circle class="f" cx="-1" r=".1"/><circle class="f" cx="1" r=".1"/>'},
+  button:{name:'Кнопка',pre:'SB',pins:H2,box:[-2,-1.3,2,.3],
+    draw:()=>'<path d="M-2 0H-1M1 0H2M-1.2 -.45H1.2M0 -.45V-1.1M-.4 -1.1H.4"/><circle class="f" cx="-1" r=".1"/><circle class="f" cx="1" r=".1"/>'},
+  fuse:{name:'Предохранитель',pre:'FU',pins:H2,box:[-2,-.5,2,.5],
+    draw:()=>'<path d="M-2 0H2"/><rect x="-1.2" y="-.4" width="2.4" height=".8"/>'},
+  pot:{name:'Потенциометр',pre:'R',pins:[[-2,0,-1,0],[2,0,1,0],[0,-2,0,-1]],box:[-2,-2,2,.5],
+    draw:()=>'<path d="M-2 0H-1.2M1.2 0H2M0 -2V-.9"/><rect x="-1.2" y="-.45" width="2.4" height=".9"/>'+arrow(0,-.5,0,1,.38)},
+  thermistor:{name:'Терморезистор',pre:'RK',pins:H2,box:[-2,-1,2,1],
+    draw:()=>'<path d="M-2 0H-1.2M1.2 0H2"/><rect x="-1.2" y="-.45" width="2.4" height=".9"/><path d="M-1 .95H-.65L.65 -.95H1"/>'},
+  photores:{name:'Фоторезистор',pre:'R',pins:H2,box:[-2,-1.9,2,.5],
+    draw:()=>'<path d="M-2 0H-1.2M1.2 0H2"/><rect x="-1.2" y="-.45" width="2.4" height=".9"/><path d="M-1.3 -1.8L-.8 -1.3M-.6 -1.8L-.1 -1.3"/>'+arrow(-.6,-1.1,1,1,.3)+arrow(.1,-1.1,1,1,.3)},
+  varcap:{name:'Переменный конденсатор',pre:'C',pins:H2,box:[-2,-1,2,1],
+    draw:()=>'<path d="M-2 0H-.2M.2 0H2M-.2 -.8V.8M.2 -.8V.8M-.9 .9L.8 -.8"/>'+arrow(.95,-.95,1,-1,.38)},
+  transformer:{name:'Трансформатор',pre:'T',pins:[[-2,-2,-1,0],[-2,2,-1,0],[2,-2,1,0],[2,2,1,0]],box:[-2,-2,2,2],
+    draw:()=>'<path d="M-2 -2H-1V-1.2a.3 .3 0 0 0 0 .6a.3 .3 0 0 0 0 .6a.3 .3 0 0 0 0 .6a.3 .3 0 0 0 0 .6V2H-2"/><path d="M2 -2H1V-1.2a.3 .3 0 0 1 0 .6a.3 .3 0 0 1 0 .6a.3 .3 0 0 1 0 .6a.3 .3 0 0 1 0 .6V2H2"/><path d="M-.2 -1.2V1.2M.2 -1.2V1.2"/>'},
+  zener:{name:'Стабилитрон',pre:'VD',pins:H2,box:[-2,-.8,2,.8],
+    draw:()=>'<path d="M-2 0H2M.7 -.7V.7H.25"/><path d="M-.7 -.7V.7L.7 0Z"/>'},
+  schottky:{name:'Диод Шоттки',pre:'VD',pins:H2,box:[-2,-.8,2,.8],
+    draw:()=>'<path d="M-2 0H2M.4 -.5V-.7H.7V.7H1V.5"/><path d="M-.7 -.7V.7L.7 0Z"/>'},
+  photodiode:{name:'Фотодиод',pre:'VD',pins:H2,box:[-2,-1.6,2,.8],
+    draw:()=>S.diode.draw()+'<path d="M.4 -1.5L-.1 -1M1 -1.45L.5 -.95"/>'+arrow(-.3,-.8,-1,1,.3)+arrow(.3,-.75,-1,1,.3)},
+  thyristor:{name:'Тиристор',pre:'VS',pins:[[-2,0,-1,0],[2,0,1,0],[0,2,0,1]],box:[-2,-.8,2,2],
+    draw:()=>S.diode.draw()+'<path d="M.7 .35L0 1V2"/>'},
+  nmos:{name:'Полевой транзистор (n)',pre:'VT',pins:[[-2,0,-1,0],[1,-2,0,-1],[1,2,0,1]],box:[-2,-2,1.2,2],side:'r',
+    draw:()=>'<path d="M-2 0H-.7M-.7 -.8V.8M-.35 -.8V-.45M-.35 -.2V.2M-.35 .45V.8M-.35 -.65H1V-2M-.35 .65H1V2M-.35 0H1"/>'+arrow(-.35,0,-1,0,.3)},
+  pmos:{name:'Полевой транзистор (p)',pre:'VT',pins:[[-2,0,-1,0],[1,-2,0,-1],[1,2,0,1]],box:[-2,-2,1.2,2],side:'r',
+    draw:()=>'<path d="M-2 0H-.7M-.7 -.8V.8M-.35 -.8V-.45M-.35 -.2V.2M-.35 .45V.8M-.35 -.65H1V-2M-.35 .65H1V2M-.35 0H1"/>'+arrow(.25,0,1,0,.3)},
+  opamp:{name:'Операционный усилитель',pre:'DA',pins:[[-2,-1,-1,0],[-2,1,-1,0],[2,0,1,0]],box:[-2,-1.9,2,1.9],
+    draw:r=>'<path d="M-2 -1H-1M-2 1H-1M1.2 0H2"/><path d="M-1 -1.8V1.8L1.2 0Z"/>'+T(-.6,-1,'−',.7,'st','middle',r)+T(-.6,1,'+',.7,'st','middle',r)},
+  ic:{name:'Микросхема',pre:'DD',pins:[[-2,-1,-1,0],[-2,0,-1,0],[-2,1,-1,0],[2,-1,1,0],[2,0,1,0],[2,1,1,0]],box:[-2,-1.6,2,1.6],
+    draw:()=>'<path d="M-2 -1H-1M-2 0H-1M-2 1H-1M1 -1H2M1 0H2M1 1H2"/><rect x="-1" y="-1.5" width="2" height="3"/>'},
+  spdt:{name:'Переключатель',pre:'SA',pins:[[-2,0,-1,0],[2,-1,1,0],[2,1,1,0]],box:[-2,-1.2,2,1.2],
+    draw:()=>'<path d="M-2 0H-1M1 -1H2M1 1H2M-1 0L.9 -.75"/><circle class="f" cx="-1" r=".1"/><circle class="f" cx="1" cy="-1" r=".1"/><circle class="f" cx="1" cy="1" r=".1"/>'},
+  speaker:{name:'Динамик',pre:'BA',pins:[[-2,-1,-1,0],[-2,1,-1,0]],box:[-2,-1.3,.7,1.3],side:'r',
+    draw:()=>'<path d="M-2 -1H-1V-.6M-2 1H-1V.6"/><rect x="-1.2" y="-.6" width=".7" height="1.2"/><path d="M-.5 -.6L.5 -1.2V1.2L-.5 .6"/>'},
+  motor:{name:'Двигатель',pre:'M',pins:H2,box:[-2,-1,2,1],
+    draw:r=>'<path d="M-2 0H-1M1 0H2"/><circle r="1"/>'+T(0,.02,'M',1,'st','middle',r)},
+  quartz:{name:'Кварцевый резонатор',pre:'ZQ',pins:H2,box:[-2,-.8,2,.8],
+    draw:()=>'<path d="M-2 0H-.7M.7 0H2M-.7 -.8V.8M.7 -.8V.8"/><rect x="-.35" y="-.6" width=".7" height="1.2"/>'},
+  antenna:{name:'Антенна',pre:'WA',pins:[[0,0,0,1]],box:[-.8,-2.3,.8,.3],
+    draw:()=>'<path d="M0 0V-1.6M-.7 -2.3L0 -1.6L.7 -2.3"/>'},
+  terminal:{name:'Клемма',pre:'X',pins:[[0,0,1,0]],box:[-.4,-.4,.4,.4],
+    draw:()=>'<circle r=".22" style="fill:var(--paper)"/>'},
+  vcc:{name:'Шина питания',pre:'',pins:[[0,0,0,1]],box:[-.8,-1,.8,.3],
+    draw:()=>'<path d="M0 0V-.7M-.6 -.7H.6"/>'},
+  chassis:{name:'Корпус',pre:'',pins:[[0,0,0,-1]],box:[-1.1,-.3,1.1,1.2],
+    draw:()=>'<path d="M0 0V.5M-.8 .5H.8M-.8 .5L-1.1 1M-.4 .5L-.7 1M0 .5L-.3 1M.4 .5L.1 1M.8 .5L.5 1"/>'},
+  ground:{name:'Земля',pre:'',pins:[[0,0,0,-1]],box:[-.9,-.3,.9,1.3],
+    draw:()=>'<path d="M0 0V.6M-.8 .6H.8M-.5 .9H.5M-.2 1.2H.2"/>'},
+  text:{name:'Надпись',pre:'',pins:[],box:[0,-.5,2,.5],draw:()=>''}
+};
+/* ---------- дополнительные детали ---------- */
+S.thyristor.name='Триодный тиристор (управление по катоду)';
+S.varcap.name='Переменный конденсатор';
+S.thyristor_a={name:'Триодный тиристор (управление по аноду)',pre:'VS',pins:[[-2,0,-1,0],[2,0,1,0],[0,2,0,1]],box:[-2,-.8,2,2],
+  draw:()=>S.diode.draw()+'<path d="M-.35 .525L0 1V2"/>'};
+S.dinistor={name:'Диодный тиристор (динистор)',pre:'VS',pins:H2,box:[-2,-.8,2,.8],
+  draw:()=>'<path d="M-2 0H2M.2 -.75V.75M.7 -.75V.75"/><path d="M-.7 -.7V.7L.7 0Z"/>'};
+S.varicap={name:'Варикап',pre:'VD',pins:H2,box:[-2,-.8,2,.8],
+  draw:()=>'<path d="M-2 0H.5M.9 0H2M.5 -.7V.7M.9 -.7V.7"/><path d="M-.7 -.7V.7L.5 0Z"/>'};
+S.zener2={name:'Стабилитрон двусторонний',pre:'VD',pins:H2,box:[-2,-.8,2,.8],
+  draw:()=>'<path d="M-2 0H2"/><path d="M-1.4 -.7V.7L0 0Z"/><path d="M1.4 -.7V.7L0 0Z"/><path d="M.45 -.7H0V.7H-.45"/>'};
+S.bridge={name:'Диодный мост',pre:'VD',pins:[[-2,0,-1,0],[2,0,1,0],[0,-2,0,-1],[0,2,0,1]],box:[-2,-2,2,2],
+  draw:()=>{
+    const V={L:[-1.2,0],T:[0,-1.2],R:[1.2,0],B:[0,1.2]};
+    let s='<path d="M-2 0H-1.2M1.2 0H2M0 -2V-1.2M0 1.2V2"/>';
+    [['L','T'],['R','T'],['B','L'],['B','R']].forEach(([a,b])=>{
+      const [x1,y1]=V[a],[x2,y2]=V[b];
+      const mx=(x1+x2)/2,my=(y1+y2)/2,L=Math.hypot(x2-x1,y2-y1),ux=(x2-x1)/L,uy=(y2-y1)/L,k=.28;
+      const ang=Math.atan2(y2-y1,x2-x1)*180/Math.PI;
+      s+=`<path d="M${x1} ${y1}L${(mx-ux*k).toFixed(3)} ${(my-uy*k).toFixed(3)}M${(mx+ux*k).toFixed(3)} ${(my+uy*k).toFixed(3)}L${x2} ${y2}"/>`;
+      s+=`<g transform="translate(${mx} ${my}) rotate(${ang.toFixed(2)}) scale(.4)" style="stroke-width:.225"><path d="M-.7 -.7V.7L.7 0Z"/><path d="M.7 -.7V.7"/></g>`;
+    });
+    return s;
+  }};
+S.polcap2={name:'Конденсатор полярный (обкладка-прямоугольник)',pre:'C',pins:H2,box:[-2,-1.2,2,.9],
+  draw:r=>'<path d="M-2 0H-.2M.4 0H2M-.2 -.8V.8"/><rect x=".1" y="-.8" width=".3" height="1.6"/>'+T(-.8,-.85,'+',.7,'st','middle',r)};
+S.ncap={name:'Конденсатор электролитический неполярный',pre:'C',pins:H2,box:[-2,-.9,2,.9],
+  draw:()=>'<path d="M-2 0H-.45M.45 0H2"/><rect x="-.45" y="-.8" width=".3" height="1.6"/><rect x=".15" y="-.8" width=".3" height="1.6"/>'};
+S.trimcap={name:'Конденсатор подстроечный',pre:'C',pins:H2,box:[-2,-1.1,2,1],
+  draw:()=>'<path d="M-2 0H-.2M.2 0H2M-.2 -.8V.8M.2 -.8V.8M-.9 .9L.8 -.8M.5 -1.1L1.1 -.5"/>'};
+S.thermo_no={name:'Термостат (замыкает при нагреве)',pre:'SK',def:'40 °C',vph:'40 °C',pins:H2,box:[-2,-1,2,1.4],
+  draw:r=>'<path d="M-2 0H-1M1 0H2M-1 0L.9 -.8"/><circle class="f" cx="-1" r=".1"/><circle class="f" cx="1" r=".1"/>'+T(0,1,'t°',.6,'st','middle',r)};
+S.thermo_nc={name:'Термостат (размыкает при нагреве)',pre:'SK',def:'40 °C',vph:'40 °C',pins:H2,box:[-2,-1,2,1.4],
+  draw:r=>'<path d="M-2 0H-1M1 0H2M1 0V-.65M-1 0L1 -.65"/><circle class="f" cx="-1" r=".1"/><circle class="f" cx="1" r=".1"/>'+T(0,1,'t°',.6,'st','middle',r)};
+/* диоды с одинаковым значком, но разным назначением */
+const alias=(key,name,base,extra)=>{S[key]=Object.assign({},S[base],{name},extra||{});};
+alias('rectd','Диод выпрямительный','diode',{vph:'1N4007'});
+alias('pulsed','Диод импульсный','diode',{vph:'1N4148'});
+alias('hfd','Диод высокочастотный','diode');
+alias('ud','Диод универсальный','diode');
+S.tvs={name:'Ограничительный диод (TVS)',pre:'VD',vph:'SMBJ5.0A',pins:H2,box:[-2,-1.3,2,1.3],
+  draw:()=>'<path d="M-2 0H2M.2 -1.2L.7 -.7V.7L1.2 1.2"/><path d="M-.7 -.7V.7L.7 0Z"/>'};
+
+/* ---------- логические элементы по ГОСТ ---------- */
+function mkGate(key,name,sym,ins,inv){
+  const h=ins===1?1:1.5,ys=ins===1?[0]:ins===2?[-1,1]:[-1,0,1];
+  const out=inv?'<circle cx="1.18" r=".18" style="fill:var(--paper)"/><path d="M1.36 0H2"/>':'<path d="M1 0H2"/>';
+  S[key]={name,pre:'DD',def:'',pins:[...ys.map(y=>[-2,y,-1,0]),[2,0,1,0]],box:[-2,-h,2,h],
+    draw:r=>`<rect x="-1" y="${-h}" width="2" height="${h*2}"/>`+ys.map(y=>`<path d="M-2 ${y}H-1"/>`).join('')+out+T(0,0,sym,sym.length>1?.8:.95,'st','middle',r)};
+}
+mkGate('g_not','Инвертор (НЕ)','1',1,true);
+mkGate('g_and2','Элемент 2И','&',2,false);
+mkGate('g_nand2','Элемент 2И-НЕ','&',2,true);
+mkGate('g_nand3','Элемент 3И-НЕ','&',3,true);
+mkGate('g_or2','Элемент 2ИЛИ','1',2,false);
+mkGate('g_nor2','Элемент 2ИЛИ-НЕ','1',2,true);
+mkGate('g_xor2','Исключающее ИЛИ','=1',2,false);
+
+/* ---------- микросхемы и модули ---------- */
+function icGeometry(o){
+  const half=(o.w||4)/2,rows=o.rows,tb=!!o.tb;
+  const y0=tb?-1:-.5,y1=tb?rows:rows-.5,pins=o.pins;
+  return {
+    pins:pins.map(p=>p.s==='L'?[-(half+1),p.row,-1,0]:p.s==='R'?[half+1,p.row,1,0]:p.s==='B'?[p.x||0,rows+1,0,1]:[p.x||0,-2,0,-1]),
+    box:[-(half+1),tb?-2:-.6,half+1,tb?rows+1:rows-.4],
+    draw:r=>{
+      let h=`<rect x="${-half}" y="${y0}" width="${half*2}" height="${y1-y0}"/>`;
+      pins.forEach(p=>{
+        if(p.s==='L'||p.s==='R'){
+          const sg=p.s==='L'?-1:1,ex=sg*(half+1),ed=sg*half,y=p.row;
+          h+=`<path d="M${ex} ${y}H${p.inv?ed+sg*.3:ed}"/>`;
+          if(p.inv)h+=`<circle cx="${ed+sg*.15}" cy="${y}" r=".15" style="fill:var(--paper)"/>`;
+          if(p.label)h+=T(ed-sg*.2,y,p.label,.5,'st',sg<0?'start':'end',r);
+          if(p.num!==undefined)h+=T(sg*(half+.5),y-.34,String(p.num),.38,'sn','middle',r);
+        }else{
+          const top=p.s==='T',x=p.x||0,ey=top?-2:rows+1,ed=top?y0:y1;
+          h+=`<path d="M${x} ${ey}V${ed}"/>`;
+          if(p.label)h+=T(x,top?y0+.45:y1-.45,p.label,.5,'st','middle',r);
+          if(p.num!==undefined)h+=T(x+.45,(ey+ed)/2,String(p.num),.4,'sn','start',r);
+        }
+      });
+      if(o.note)h+=T(0,(y0+y1)/2,o.note,.42,'sn','middle',r);
+      if(o.extra)h+=o.extra(r);
+      return h;
+    }};
+}
+function mkIC(key,name,pre,o){
+  S[key]=Object.assign({name,pre,def:o.def===undefined?'':o.def,vph:o.vph,ic:true},icGeometry(o));
+}
+/* выводы корпуса DIP: слева 1…n/2 сверху вниз, справа n…n/2+1 сверху вниз (вид сверху, как в справочнике) */
+function dip(n,labels,inv){
+  const h=n/2,pins=[],iv=inv||[];
+  for(let i=1;i<=h;i++)if(labels[i])pins.push({s:'L',row:i-1,num:i,label:labels[i],inv:iv.includes(i)});
+  for(let i=n;i>h;i--)if(labels[i])pins.push({s:'R',row:n-i,num:i,label:labels[i],inv:iv.includes(i)});
+  return pins;
+}
+mkIC('k155la3','К155ЛА3 (4 × 2И-НЕ)','DD',{rows:7,def:'К155ЛА3',note:'4×2И-НЕ',
+  pins:dip(14,{1:'X1',2:'X2',3:'Y1',4:'X3',5:'X4',6:'Y2',7:'GND',8:'Y3',9:'X5',10:'X6',11:'Y4',12:'X7',13:'X8',14:'VCC'})});
+mkIC('k155ln1','К155ЛН1 (6 × НЕ)','DD',{rows:7,def:'К155ЛН1',note:'6×НЕ',
+  pins:dip(14,{1:'X1',2:'Y1',3:'X2',4:'Y2',5:'X3',6:'Y3',7:'GND',8:'Y4',9:'X4',10:'Y5',11:'X5',12:'Y6',13:'X6',14:'VCC'})});
+mkIC('k561ln2','К561ЛН2 (6 × НЕ)','DD',{rows:8,def:'К561ЛН2',note:'6×НЕ',
+  pins:dip(16,{1:'VCC',2:'Y1',3:'X1',4:'Y2',5:'X2',6:'Y3',7:'X3',8:'GND',9:'X4',10:'Y4',11:'X5',12:'Y5',14:'X6',15:'Y6'})});
+mkIC('k155ie7','К155ИЕ7 (счётчик ±)','DD',{rows:8,def:'К155ИЕ7',note:'CT2',
+  pins:dip(16,{1:'D2',2:'Q2',3:'Q1',4:'−1',5:'+1',6:'Q3',7:'Q4',8:'GND',9:'D8',10:'D4',11:'PL',12:'+P',13:'−P',14:'R',15:'D1',16:'VCC'},[11,12,13])});
+(()=>{
+  const lb={12:'GND',24:'VCC',18:'E0',19:'E1',20:'A3',21:'A2',22:'A1',23:'A0'};
+  for(let i=1;i<=11;i++)lb[i]='Y'+(i-1);
+  for(let i=13;i<=17;i++)lb[i]='Y'+(i-2);
+  mkIC('k155id3','К155ИД3 (дешифратор 4→16)','DD',{rows:12,def:'К155ИД3',note:'DC',
+    pins:dip(24,lb,[1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19])});
+})();
+mkIC('k174un7','К174УН7 (УМЗЧ)','DA',{w:6,rows:6,def:'К174УН7',
+  pins:dip(12,{1:'+U',4:'ООС',5:'Корр',6:'ОС',7:'Фильтр',8:'Вход',9:'GND',10:'Э',12:'Выход'})});
+mkIC('mx1508','Драйвер двигателя MX1508','A',{rows:6,def:'MX1508',
+  pins:[{s:'L',row:0,label:'+'},{s:'L',row:1,label:'−'},{s:'L',row:2,label:'IN1'},{s:'L',row:3,label:'IN2'},{s:'L',row:4,label:'IN3'},{s:'L',row:5,label:'IN4'},
+        {s:'R',row:2,label:'A1'},{s:'R',row:3,label:'A2'},{s:'R',row:4,label:'B1'},{s:'R',row:5,label:'B2'}]});
+mkIC('dcdc','DC/DC преобразователь','A',{w:6,rows:2,def:'DC/DC',
+  pins:[{s:'L',row:0,num:'IN+'},{s:'L',row:1,num:'IN−'},{s:'R',row:0,num:'OUT+'},{s:'R',row:1,num:'OUT−'}],
+  extra:r=>'<path d="M-3 1.5L3 -.5"/>'+T(-1,0,'=',.9,'st','middle',r)+T(1,.95,'=',.9,'st','middle',r)});
+mkIC('tp4056','Модуль заряда TP4056 (4 вывода)','A',{w:6,rows:2,def:'TP4056',note:'TP4056',
+  pins:[{s:'L',row:0,num:'IN+'},{s:'L',row:1,num:'IN−'},{s:'R',row:0,num:'B+'},{s:'R',row:1,num:'B−'}]});
+mkIC('tp4056p','Модуль заряда TP4056 с защитой (6 выводов)','A',{w:6,rows:4,def:'TP4056',note:'TP4056',
+  pins:[{s:'L',row:0,num:'IN+'},{s:'L',row:1,num:'IN−'},{s:'R',row:0,num:'OUT+'},{s:'R',row:1,num:'OUT−'},{s:'R',row:2,num:'B+'},{s:'R',row:3,num:'B−'}]});
+mkIC('reg5','Стабилизатор 5 В','DA',{rows:1,tb:true,def:'+5 В',vph:'7805',
+  pins:[{s:'L',row:0,label:'IN'},{s:'R',row:0,label:'OUT'},{s:'B',x:0,label:'GND'}]});
+
+/* ---------- универсальная микросхема: выводы задаёт сам пользователь ---------- */
+function parsePin(s){
+  s=String(s).trim();
+  let num,label=s;
+  const m=s.match(/^(\d+)(?:[\s:]+(.*))?$/);
+  if(m){num=m[1];label=(m[2]||'').trim();}
+  let inv=false;
+  if(label[0]==='!'||label[0]==='/'){inv=true;label=label.slice(1).trim();}
+  return {num,label,inv};
+}
+const splitList=t=>String(t||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean).slice(0,64);
+const geoCache=new Map();
+function geo(c){
+  const t=S[c.type];
+  if(!t.dyn)return t;
+  const key=JSON.stringify([c.left,c.right]);
+  let g=geoCache.get(key);
+  if(!g){
+    const L=(c.left||[]).map(parsePin),R=(c.right||[]).map(parsePin);
+    const rows=Math.max(L.length,R.length,1);
+    const wl=Math.max(0,...L.map(p=>p.label.length)),wr=Math.max(0,...R.map(p=>p.label.length));
+    const w=Math.max(4,Math.ceil(((wl+wr)*.32+1.2)/2)*2);
+    const pins=[...L.map((p,i)=>Object.assign({s:'L',row:i},p)),...R.map((p,i)=>Object.assign({s:'R',row:i},p))];
+    g=icGeometry({w,rows,pins});
+    if(geoCache.size>200)geoCache.clear();
+    geoCache.set(key,g);
+  }
+  return g;
+}
+S.icx={name:'Микросхема (универсальная)',pre:'DD',def:'',vph:'К155ЛА3',ic:true,dyn:true,pins:[],box:[-3,-.6,3,2.6],draw:()=>''};
+
+const GROUPS=[
+  ['Резисторы, конденсаторы, катушки',['resistor','varres','pot','thermistor','photores','capacitor','varcap','trimcap','polcap','polcap2','ncap','inductor','transformer']],
+  ['Питание и земля',['cell','battery','vcc','ground','chassis']],
+  ['Диоды',['diode','rectd','pulsed','hfd','ud','schottky','zener','zener2','tvs','varicap','led','photodiode','bridge']],
+  ['Тиристоры и транзисторы',['dinistor','thyristor','thyristor_a','npn','pnp','nmos','pmos']],
+  ['Логические элементы (по ГОСТ)',['g_not','g_and2','g_nand2','g_nand3','g_or2','g_nor2','g_xor2']],
+  ['Микросхемы',['icx','k155la3','k155ln1','k561ln2','k155ie7','k155id3','k174un7','opamp']],
+  ['Модули',['mx1508','dcdc','reg5','tp4056','tp4056p']],
+  ['Ключи и защита',['switch','spdt','button','fuse','thermo_nc','thermo_no']],
+  ['Нагрузки и прочее',['lamp','speaker','motor','quartz','antenna','terminal','text']]
+];
+
+
+/* ---------- состояние ---------- */
+let doc={comps:[],wires:[],nodes:[],nid:1};
+let view={x:0,y:0,s:32};
+let sel=[];              // список выбранного: {k:'c'|'w'|'n'|'a', id | x,y}
+let tool='select';
+let undo=[],redo=[];
+let drag=null;
+const KEY='plis-doc-v1',OLD_KEY='kontur-doc-v1';
+
+const board=$('#board'),world=$('#world');
+const snap=()=>JSON.stringify(doc);
+const compById=id=>doc.comps.find(c=>c.id===id);
+
+function rot(x,y,a){a=((a%360)+360)%360;return a===0?[x,y]:a===90?[-y,x]:a===180?[-x,-y]:[y,-x];}
+function pinsOf(c){
+  return geo(c).pins.map(([px,py,dx,dy])=>{
+    const [a,b]=rot(px,py,c.r),[d,e]=rot(dx,dy,c.r);
+    return {x:c.x+a,y:c.y+b,dx:d,dy:e};
+  });
+}
+function bbox(c){
+  const b=c.type==='text'?[-.2,-.5,.25+(c.value||'').length*.4,.5]:geo(c).box;
+  const r=c.type==='text'?0:c.r;
+  const p=[[b[0],b[1]],[b[2],b[1]],[b[2],b[3]],[b[0],b[3]]].map(q=>rot(q[0],q[1],r));
+  const xs=p.map(q=>q[0]),ys=p.map(q=>q[1]);
+  return {x0:c.x+Math.min(...xs),y0:c.y+Math.min(...ys),x1:c.x+Math.max(...xs),y1:c.y+Math.max(...ys)};
+}
+function labelText(c){return [c.label,c.value].filter(Boolean).join(' ');}
+function labelSVG(c){
+  const txt=labelText(c);if(!txt)return '';
+  const b=bbox(c);
+  if(S[c.type].side==='r'||c.r%180!==0) return T(b.x1+.25,(b.y0+b.y1)/2,txt,.6,'lab','start');
+  return T((b.x0+b.x1)/2,b.y0-.45,txt,.6,'lab','middle');
+}
+function bounds(){
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  const add=(a,b)=>{x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b);};
+  doc.comps.forEach(c=>{
+    const b=bbox(c);add(b.x0,b.y0);add(b.x1,b.y1);
+    const t=c.type==='text'?'':labelText(c);
+    if(t){
+      const w=t.length*.38;
+      if(S[c.type].side==='r'||c.r%180!==0){add(b.x1+.25+w,b.y0);}
+      else{add((b.x0+b.x1)/2-w/2,b.y0-.9);add((b.x0+b.x1)/2+w/2,b.y0-.9);}
+    }
+  });
+  doc.wires.forEach(w=>w.pts.forEach(p=>add(p[0],p[1])));
+  (doc.nodes||[]).forEach(n=>add(n.x,n.y));
+  return x0>1e8?null:{x0,y0,x1,y1};
+}
+
+/* ---------- провода: узлы и маршрут ---------- */
+const eq=(a,b)=>a[0]===b[0]&&a[1]===b[1];
+function onSeg(P,s){
+  const a=s[0],b=s[1];
+  if(a[0]===b[0])return P[0]===a[0]&&P[1]>Math.min(a[1],b[1])&&P[1]<Math.max(a[1],b[1]);
+  if(a[1]===b[1])return P[1]===a[1]&&P[0]>Math.min(a[0],b[0])&&P[0]<Math.max(a[0],b[0]);
+  return false;
+}
+function junctionsRaw(){
+  const segs=[];
+  doc.wires.forEach(w=>{for(let i=0;i<w.pts.length-1;i++)segs.push([w.pts[i],w.pts[i+1]]);});
+  const pins=[];doc.comps.forEach(c=>pinsOf(c).forEach(p=>pins.push(p)));
+  const cand=new Map();segs.forEach(s=>{cand.set(s[0].join(),s[0]);cand.set(s[1].join(),s[1]);});
+  const out=[];
+  cand.forEach(P=>{
+    let n=0;
+    segs.forEach(s=>{if(eq(s[0],P)||eq(s[1],P))n+=1;else if(onSeg(P,s))n+=2;});
+    pins.forEach(p=>{if(p.x===P[0]&&p.y===P[1])n+=1;});
+    if(n>=3)out.push(P);
+  });
+  return out;
+}
+function junctions(){
+  const nn=doc.noNodes||[];
+  return junctionsRaw().filter(P=>!nn.some(q=>eq(q,P)));
+}
+function pinAt(x,y){
+  for(const c of doc.comps)for(const p of pinsOf(c))if(p.x===x&&p.y===y)return p;
+  return null;
+}
+function pickHFirst(a,b){
+  const pa=pinAt(a[0],a[1]);
+  if(pa){if(pa.dx!==0)return true;if(pa.dy!==0)return false;}
+  const pb=pinAt(b[0],b[1]);
+  if(pb){if(pb.dx!==0)return false;if(pb.dy!==0)return true;}
+  return Math.abs(b[0]-a[0])>=Math.abs(b[1]-a[1]);
+}
+function route(a,b){
+  if(a[0]===b[0]||a[1]===b[1])return [a,b];
+  const mid=pickHFirst(a,b)?[b[0],a[1]]:[a[0],b[1]];
+  return [a,mid,b];
+}
+
+/* ---------- отрисовка ---------- */
+const isSel=(k,id)=>sel.some(s=>s.k===k&&s.id===id);
+function nodeSVG(x,y,r,on){
+  return (on?`<circle class="ring" cx="${x}" cy="${y}" r=".45"/>`:'')+`<circle class="dot" cx="${x}" cy="${y}" r="${r}"/>`;
+}
+function sceneSVG(ui){
+  let h='';
+  doc.wires.forEach(w=>{
+    const s=ui&&isSel('w',w.id);
+    h+=`<polyline class="wire${s?' sel':''}" points="${w.pts.map(p=>p.join(',')).join(' ')}"/>`;
+  });
+  junctions().forEach(p=>{h+=nodeSVG(p[0],p[1],.17,ui&&sel.some(s=>s.k==='a'&&s.x===p[0]&&s.y===p[1]));});
+  (doc.nodes||[]).forEach(n=>{h+=nodeSVG(n.x,n.y,.2,ui&&isSel('n',n.id));});
+  doc.comps.forEach(c=>{
+    const s=ui&&isSel('c',c.id);
+    if(s){const b=bbox(c);h+=`<rect class="selbox" x="${b.x0-.15}" y="${b.y0-.15}" width="${b.x1-b.x0+.3}" height="${b.y1-b.y0+.3}" rx=".2"/>`;}
+    if(c.type==='text'){h+=T(c.x,c.y,c.value,.7,'st'+(s?' sel':''),'start');return;}
+    h+=`<g class="sym${s?' sel':''}" transform="translate(${c.x} ${c.y}) rotate(${c.r})">${geo(c).draw(c.r)}</g>`+labelSVG(c);
+  });
+  if(ui&&drag&&drag.mode==='wire'&&drag.moved){
+    const pts=route(drag.a,drag.b);
+    h+=`<polyline class="prev" points="${pts.map(p=>p.join(',')).join(' ')}"/>`;
+    h+=`<circle class="ring" cx="${drag.b[0]}" cy="${drag.b[1]}" r=".38"/><circle class="dot" cx="${drag.a[0]}" cy="${drag.a[1]}" r=".14"/>`;
+  }
+  if(ui&&drag&&drag.mode==='band'&&drag.moved){
+    const x=Math.min(drag.a[0],drag.b[0]),y=Math.min(drag.a[1],drag.b[1]);
+    h+=`<rect class="band" x="${x}" y="${y}" width="${Math.abs(drag.a[0]-drag.b[0])}" height="${Math.abs(drag.a[1]-drag.b[1])}"/>`;
+  }
+  return h;
+}
+function drawGrid(){
+  const r=board.getBoundingClientRect(),s=view.s;
+  let mi='',ma='';
+  const x0=Math.floor(-view.x/s),x1=Math.ceil((r.width-view.x)/s);
+  const y0=Math.floor(-view.y/s),y1=Math.ceil((r.height-view.y)/s);
+  for(let i=x0;i<=x1;i++){
+    const px=Math.round(view.x+i*s)+.5;
+    if(i%5===0)ma+=`M${px} 0V${r.height}`;else if(s>=13)mi+=`M${px} 0V${r.height}`;
+  }
+  for(let j=y0;j<=y1;j++){
+    const py=Math.round(view.y+j*s)+.5;
+    if(j%5===0)ma+=`M0 ${py}H${r.width}`;else if(s>=13)mi+=`M0 ${py}H${r.width}`;
+  }
+  $('#gmin').setAttribute('d',mi);$('#gmaj').setAttribute('d',ma);
+}
+function render(){
+  drawGrid();
+  world.setAttribute('transform',`translate(${view.x} ${view.y}) scale(${view.s})`);
+  world.innerHTML=sceneSVG(true);
+}
+function syncUI(){
+  $('#t-select').setAttribute('aria-pressed',tool==='select');
+  $('#t-wire').setAttribute('aria-pressed',tool==='wire');
+  $('#t-node').setAttribute('aria-pressed',tool==='node');
+  const one=sel.length===1?sel[0]:null,c=one&&one.k==='c'?compById(one.id):null;
+  $('#t-rotate').disabled=!sel.length||!!(c&&c.type==='text')||!!(one&&(one.k==='n'||one.k==='a'));
+  $('#t-label').disabled=!c;
+  $('#t-delete').disabled=!sel.length;
+  $('#b-undo').disabled=!undo.length;
+  $('#b-redo').disabled=!redo.length;
+}
+
+/* ---------- вид: масштаб и сдвиг ---------- */
+const toWorld=(px,py)=>[(px-view.x)/view.s,(py-view.y)/view.s];
+function zoomAt(px,py,f){
+  f=clamp(view.s*f,10,90)/view.s;
+  view.x=px-(px-view.x)*f;view.y=py-(py-view.y)*f;view.s*=f;render();
+}
+function fit(){
+  const r=board.getBoundingClientRect(),b=bounds();
+  if(!b){view.s=32;view.x=r.width/2-10*32;view.y=r.height/2-8*32;render();return;}
+  const bw=b.x1-b.x0+4,bh=b.y1-b.y0+4;
+  const s=clamp(Math.min(r.width/bw,r.height/bh),14,48);
+  view.s=s;view.x=r.width/2-((b.x0+b.x1)/2)*s;view.y=r.height/2-((b.y0+b.y1)/2)*s;render();
+}
+
+/* ---------- история ---------- */
+function checkpoint(pre){
+  if(pre!==snap()){undo.push(pre);if(undo.length>100)undo.shift();redo=[];}
+  persist();syncUI();
+}
+function mutate(fn){const pre=snap();fn();checkpoint(pre);render();}
+function doUndo(){if(!undo.length)return;redo.push(snap());doc=JSON.parse(undo.pop());sel=[];persist();syncUI();render();}
+function doRedo(){if(!redo.length)return;undo.push(snap());doc=JSON.parse(redo.pop());sel=[];persist();syncUI();render();}
+
+/* ---------- сохранение в память телефона ---------- */
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(doc));}catch(e){}}
+function sanitize(d){
+  if(!d||!Array.isArray(d.comps)||!Array.isArray(d.wires))return null;
+  const num=Number.isFinite;
+  const comps=d.comps.filter(c=>c&&S[c.type]&&num(c.x)&&num(c.y)).map(c=>Object.assign({
+    id:0,type:c.type,x:Math.round(c.x),y:Math.round(c.y),
+    r:[0,90,180,270].includes(c.r)?c.r:0,label:String(c.label||''),value:String(c.value||'')},
+    c.type==='icx'?{left:(Array.isArray(c.left)?c.left:[]).map(String).slice(0,64),right:(Array.isArray(c.right)?c.right:[]).map(String).slice(0,64)}:{}));
+  const wires=d.wires.filter(w=>w&&Array.isArray(w.pts)&&w.pts.length>=2&&w.pts.every(p=>Array.isArray(p)&&num(p[0])&&num(p[1])))
+    .map(w=>({id:0,pts:w.pts.map(p=>[Math.round(p[0]),Math.round(p[1])])}));
+  let n=1;comps.forEach(c=>c.id=n++);wires.forEach(w=>w.id=n++);
+  const nodes=(Array.isArray(d.nodes)?d.nodes:[]).map(p=>Array.isArray(p)?{x:p[0],y:p[1]}:p).filter(p=>p&&num(p.x)&&num(p.y)).map(p=>({id:n++,x:Math.round(p.x),y:Math.round(p.y)}));
+  const noNodes=(Array.isArray(d.noNodes)?d.noNodes:[]).filter(p=>Array.isArray(p)&&num(p[0])&&num(p[1])).map(p=>[Math.round(p[0]),Math.round(p[1])]);
+  return {comps,wires,nodes,noNodes,nid:n};
+}
+function example(){
+  let n=1;
+  const c=(type,x,y,r,label,value)=>({id:n++,type,x,y,r,label,value});
+  const comps=[c('battery',4,8,90,'GB1','4,5 В'),c('switch',10,4,0,'SA1',''),c('lamp',16,8,90,'EL1','3,5 В')];
+  const w=pts=>({id:n++,pts});
+  return {comps,wires:[w([[4,6],[4,4],[8,4]]),w([[12,4],[16,4],[16,6]]),w([[16,10],[16,12],[4,12],[4,10]])],nodes:[],nid:n};
+}
+
+/* ---------- поиск элемента под пальцем ---------- */
+function distSeg(px,py,a,b){
+  const dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy;
+  let t=l2?((px-a[0])*dx+(py-a[1])*dy)/l2:0;t=clamp(t,0,1);
+  return Math.hypot(px-(a[0]+t*dx),py-(a[1]+t*dy));
+}
+const nodeById=id=>(doc.nodes||[]).find(n=>n.id===id);
+const wireById=id=>doc.wires.find(w=>w.id===id);
+function hit(wx,wy){
+  const tn=Math.min(.6,18/view.s);
+  for(const n of doc.nodes||[])if(Math.hypot(wx-n.x,wy-n.y)<=tn)return {k:'n',id:n.id};
+  for(const p of junctions())if(Math.hypot(wx-p[0],wy-p[1])<=tn)return {k:'a',x:p[0],y:p[1]};
+  for(let i=doc.comps.length-1;i>=0;i--){
+    const c=doc.comps[i],b=bbox(c),m=.15;
+    if(wx>=b.x0-m&&wx<=b.x1+m&&wy>=b.y0-m&&wy<=b.y1+m)return {k:'c',id:c.id};
+  }
+  const tol=Math.min(.55,16/view.s);
+  for(let i=doc.wires.length-1;i>=0;i--){
+    const w=doc.wires[i];
+    for(let j=0;j<w.pts.length-1;j++)if(distSeg(wx,wy,w.pts[j],w.pts[j+1])<=tol)return {k:'w',id:w.id};
+  }
+  return null;
+}
+const inSel=h=>h.k==='a'?sel.some(s=>s.k==='a'&&s.x===h.x&&s.y===h.y):sel.some(s=>s.k===h.k&&s.id===h.id);
+
+/* ---------- касания ---------- */
+const P=new Map();let pinch=null,dead=false,lastTap=null;
+const pos=e=>{const r=board.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};};
+
+board.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  try{board.setPointerCapture(e.pointerId);}catch(_){}
+  P.set(e.pointerId,pos(e));
+  if(P.size>=2){drag=null;dead=true;startPinch();render();return;}
+  dead=false;down(pos(e));
+});
+board.addEventListener('pointermove',e=>{
+  if(!P.has(e.pointerId))return;
+  P.set(e.pointerId,pos(e));
+  if(pinch&&P.size>=2){movePinch();return;}
+  if(dead||!drag)return;
+  move(pos(e));
+});
+const endPtr=e=>{
+  if(!P.has(e.pointerId))return;
+  const p=pos(e);P.delete(e.pointerId);
+  if(pinch&&P.size<2)pinch=null;
+  if(P.size===0){
+    if(!dead&&drag)up(p,e.type==='pointercancel');
+    drag=null;dead=false;render();
+  }
+};
+board.addEventListener('pointerup',endPtr);
+board.addEventListener('pointercancel',endPtr);
+board.addEventListener('contextmenu',e=>e.preventDefault());
+board.addEventListener('wheel',e=>{e.preventDefault();const p=pos(e);zoomAt(p.x,p.y,e.deltaY<0?1.12:1/1.12);},{passive:false});
+
+function startPinch(){
+  const [a,b]=[...P.values()];
+  pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx:(a.x+b.x)/2,my:(a.y+b.y)/2};
+}
+function movePinch(){
+  const [a,b]=[...P.values()];
+  const d=Math.hypot(a.x-b.x,a.y-b.y)||1,mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+  const f=clamp(view.s*d/pinch.d,10,90)/view.s;
+  view.x=mx-(pinch.mx-view.x)*f;view.y=my-(pinch.my-view.y)*f;view.s*=f;
+  pinch={d,mx,my};render();
+}
+function down(p){
+  const [wx,wy]=toWorld(p.x,p.y);
+  drag={start:p,last:p,moved:false,pre:snap(),w0:[wx,wy],gx:0,gy:0};
+  if(tool==='wire'){
+    const g=[Math.round(wx),Math.round(wy)];
+    drag.mode='wire';drag.a=g;drag.b=g;sel=[];syncUI();render();return;
+  }
+  if(tool==='node'){
+    drag.mode='nodetap';drag.g=[Math.round(wx),Math.round(wy)];sel=[];syncUI();render();return;
+  }
+  const h=hit(wx,wy);
+  if(h){
+    if(!inSel(h))sel=[h];
+    drag.mode='gmove';drag.hit=h;
+  }else{
+    sel=[];drag.mode='band';drag.a=[wx,wy];drag.b=[wx,wy];
+  }
+  syncUI();render();
+}
+function shiftSel(dx,dy){
+  sel.forEach(s=>{
+    if(s.k==='c'){const c=compById(s.id);if(c){c.x+=dx;c.y+=dy;}}
+    else if(s.k==='w'){const w=wireById(s.id);if(w)w.pts.forEach(q=>{q[0]+=dx;q[1]+=dy;});}
+    else if(s.k==='n'){const n=nodeById(s.id);if(n){n.x+=dx;n.y+=dy;}}
+  });
+}
+function move(p){
+  if(!drag.moved&&Math.hypot(p.x-drag.start.x,p.y-drag.start.y)<6)return;
+  drag.moved=true;
+  const [wx,wy]=toWorld(p.x,p.y);
+  if(drag.mode==='nodetap'){view.x+=p.x-drag.last.x;view.y+=p.y-drag.last.y;drag.last=p;render();return;}
+  drag.last=p;
+  if(drag.mode==='band'){drag.b=[wx,wy];render();return;}
+  if(drag.mode==='wire'){drag.b=[Math.round(wx),Math.round(wy)];render();return;}
+  if(drag.mode==='gmove'){
+    const dx=Math.round(wx-drag.w0[0]),dy=Math.round(wy-drag.w0[1]);
+    const ddx=dx-drag.gx,ddy=dy-drag.gy;
+    if(ddx||ddy){shiftSel(ddx,ddy);drag.gx=dx;drag.gy=dy;render();}
+  }
+}
+function selectBand(a,b){
+  const x0=Math.min(a[0],b[0]),x1=Math.max(a[0],b[0]),y0=Math.min(a[1],b[1]),y1=Math.max(a[1],b[1]);
+  const inR=(x,y)=>x>=x0&&x<=x1&&y>=y0&&y<=y1;
+  const out=[];
+  doc.comps.forEach(c=>{
+    const bb=bbox(c);
+    if(inR(c.x,c.y)||(bb.x0>=x0&&bb.x1<=x1&&bb.y0>=y0&&bb.y1<=y1))out.push({k:'c',id:c.id});
+  });
+  doc.wires.forEach(w=>{if(w.pts.every(q=>inR(q[0],q[1])))out.push({k:'w',id:w.id});});
+  (doc.nodes||[]).forEach(n=>{if(inR(n.x,n.y))out.push({k:'n',id:n.id});});
+  sel=out;
+}
+function up(p,cancel){
+  if(cancel)return;
+  if(drag.mode==='nodetap'){
+    if(!drag.moved)toggleNode(drag.g);
+    return;
+  }
+  if(drag.mode==='wire'){
+    if(!eq(drag.a,drag.b)){
+      const pre=drag.pre;
+      doc.wires.push({id:doc.nid++,pts:route(drag.a,drag.b)});
+      checkpoint(pre);
+    }
+    return;
+  }
+  if(drag.mode==='band'){
+    if(drag.moved){selectBand(drag.a,drag.b);if(sel.length)hint('Выбрано: '+sel.length+'. Тяните, чтобы переместить; «Поворот» и «Удалить» работают на всех сразу');}
+    syncUI();return;
+  }
+  if(drag.mode==='gmove'){
+    if(drag.moved){checkpoint(drag.pre);return;}
+    const h=drag.hit;
+    if(sel.length>1)sel=[h];
+    syncUI();
+    const key=h.k+(h.id!==undefined?h.id:h.x+','+h.y);
+    const now=Date.now();
+    if(h.k==='c'&&lastTap&&lastTap.key===key&&now-lastTap.t<400){lastTap=null;editSel();}
+    else lastTap={key,t:now};
+  }
+}
+
+/* ---------- действия ---------- */
+function setTool(t){
+  tool=t;sel=[];syncUI();render();
+  hint(t==='wire'?'Проведите пальцем от одной точки сетки к другой'
+    :t==='node'?'Коснитесь точки сетки — появится узел. Повторное касание убирает его'
+    :'Тяните по пустому месту — выделение рамкой. Двумя пальцами — масштаб и сдвиг');
+}
+function toggleNode(g){
+  const pre=snap();
+  doc.nodes=doc.nodes||[];doc.noNodes=doc.noNodes||[];
+  const i=doc.nodes.findIndex(n=>n.x===g[0]&&n.y===g[1]);
+  if(i>=0)doc.nodes.splice(i,1);
+  else if(junctionsRaw().some(q=>eq(q,g))&&!doc.noNodes.some(q=>eq(q,g)))doc.noNodes.push(g);
+  else{
+    doc.noNodes=doc.noNodes.filter(q=>!eq(q,g));
+    doc.nodes.push({id:doc.nid++,x:g[0],y:g[1]});
+  }
+  checkpoint(pre);render();
+}
+function nextLabel(type){
+  const pre=S[type].pre;if(!pre)return '';
+  const used=new Set(doc.comps.filter(c=>S[c.type].pre===pre).map(c=>c.label));
+  let i=1;while(used.has(pre+i))i++;return pre+i;
+}
+function addPart(type){
+  closeSheets();
+  const r=board.getBoundingClientRect();
+  let [x,y]=toWorld(r.width/2,r.height/2).map(Math.round);
+  while(doc.comps.some(c=>c.x===x&&c.y===y)){x+=1;y+=1;}
+  const pre=snap();
+  const c={id:doc.nid++,type,x,y,r:0,label:nextLabel(type),value:type==='text'?'Текст':(S[type].def||'')};
+  if(type==='icx'){c.left=['1 A','2 B','3 GND'];c.right=['6 VCC','5 Y','4 NC'];}
+  doc.comps.push(c);
+  tool='select';sel=[{k:'c',id:c.id}];
+  checkpoint(pre);render();
+  hint('Перетащите деталь на место. Двойное касание — изменить подпись');
+  if(type==='icx')setTimeout(editSel,250);
+}
+function rotateSel(){
+  if(!sel.length)return;
+  const one=sel.length===1?sel[0]:null;
+  if(one&&one.k==='c'){
+    const c=compById(one.id);if(!c||c.type==='text')return;
+    mutate(()=>{c.r=(c.r+90)%360;});return;
+  }
+  const items=sel.filter(s=>s.k!=='a');
+  if(!items.length)return;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  const add=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);};
+  items.forEach(s=>{
+    if(s.k==='c'){const b=bbox(compById(s.id));add(b.x0,b.y0);add(b.x1,b.y1);}
+    else if(s.k==='w')wireById(s.id).pts.forEach(q=>add(q[0],q[1]));
+    else if(s.k==='n'){const n=nodeById(s.id);add(n.x,n.y);}
+  });
+  const cx=Math.round((x0+x1)/2),cy=Math.round((y0+y1)/2);
+  const R=(x,y)=>[cx-(y-cy),cy+(x-cx)];
+  mutate(()=>{
+    items.forEach(s=>{
+      if(s.k==='c'){const c=compById(s.id);[c.x,c.y]=R(c.x,c.y);if(c.type!=='text')c.r=(c.r+90)%360;}
+      else if(s.k==='w'){const w=wireById(s.id);w.pts=w.pts.map(q=>R(q[0],q[1]));}
+      else if(s.k==='n'){const n=nodeById(s.id);[n.x,n.y]=R(n.x,n.y);}
+    });
+  });
+}
+function deleteSel(){
+  if(!sel.length)return;
+  mutate(()=>{
+    const ids=k=>new Set(sel.filter(s=>s.k===k).map(s=>s.id));
+    const cs=ids('c'),ws=ids('w'),ns=ids('n');
+    doc.comps=doc.comps.filter(c=>!cs.has(c.id));
+    doc.wires=doc.wires.filter(w=>!ws.has(w.id));
+    doc.nodes=(doc.nodes||[]).filter(n=>!ns.has(n.id));
+    doc.noNodes=doc.noNodes||[];
+    sel.filter(s=>s.k==='a').forEach(s=>{
+      if(!doc.noNodes.some(q=>q[0]===s.x&&q[1]===s.y))doc.noNodes.push([s.x,s.y]);
+    });
+    const raw=junctionsRaw();
+    doc.noNodes=doc.noNodes.filter(q=>raw.some(r=>eq(r,q)));
+    sel=[];
+  });
+  syncUI();
+}
+async function editSel(){
+  if(sel.length!==1||sel[0].k!=='c')return;
+  const c=compById(sel[0].id);if(!c)return;
+  if(c.type==='text'){
+    const r=await ask({title:'Надпись',fields:[{id:'v',label:'Текст',value:c.value}]});
+    if(r)mutate(()=>{c.value=r.v||'Текст';});
+  }else if(c.type==='icx'){
+    const r=await ask({title:'Универсальная микросхема',fields:[
+      {id:'l',label:'Обозначение',value:c.label,ph:'DD1'},
+      {id:'v',label:'Название',value:c.value,ph:'К155ЛА3'},
+      {id:'a',label:'Левая сторона: номер и имя через запятую',value:(c.left||[]).join(', '),ph:'1 VCC, 2 IN, 3 !RST'},
+      {id:'b',label:'Правая сторона',value:(c.right||[]).join(', '),ph:'8 OUT, 7 DIS'}]});
+    if(r)mutate(()=>{c.label=r.l;c.value=r.v;c.left=splitList(r.a);c.right=splitList(r.b);});
+  }else{
+    const r=await ask({title:S[c.type].name,fields:[
+      {id:'l',label:'Обозначение',value:c.label,ph:'R1'},
+      {id:'v',label:'Номинал',value:c.value,ph:S[c.type].vph||'10 кОм'}]});
+    if(r)mutate(()=>{c.label=r.l;c.value=r.v;});
+  }
+}
+
+/* ---------- окошки и подсказки ---------- */
+function hint(t,ms=3800){
+  const h=$('#hint');h.textContent=t;h.classList.add('on');
+  clearTimeout(hint.t);hint.t=setTimeout(()=>h.classList.remove('on'),ms);
+}
+function toast(t){
+  const h=$('#toast');h.textContent=t;h.classList.add('on');
+  clearTimeout(toast.t);toast.t=setTimeout(()=>h.classList.remove('on'),2600);
+}
+function ask({title,text,fields=[],ok='Готово',cancel='Отмена'}){
+  return new Promise(res=>{
+    const m=$('#modal');
+    m.innerHTML=`<div class="card" role="dialog" aria-modal="true" aria-label="${attr(title)}"><h2>${esc(title)}</h2>${text?`<p>${esc(text)}</p>`:''}${fields.map(f=>`<label>${esc(f.label)}<input id="f_${f.id}" value="${attr(f.value||'')}" placeholder="${attr(f.ph||'')}" autocomplete="off"></label>`).join('')}<div class="row"><button data-a="no">${esc(cancel)}</button><button class="main" data-a="ok">${esc(ok)}</button></div></div>`;
+    m.hidden=false;
+    const close=v=>{m.hidden=true;m.innerHTML='';m.onclick=null;m.onkeydown=null;res(v);};
+    m.onclick=e=>{
+      const a=e.target.dataset&&e.target.dataset.a;
+      if(a==='ok'){const o={};fields.forEach(f=>{o[f.id]=$('#f_'+f.id).value.trim();});close(o);}
+      else if(a==='no'||e.target===m)close(null);
+    };
+    m.onkeydown=e=>{
+      if(e.key==='Enter'){e.preventDefault();m.querySelector('[data-a=ok]').click();}
+      if(e.key==='Escape')close(null);
+    };
+    const first=m.querySelector('input');
+    if(first){first.focus();first.select();}else m.querySelector('[data-a=ok]').focus();
+  });
+}
+function openSheet(id){
+  closeSheets();$('#veil').hidden=false;
+  requestAnimationFrame(()=>$('#'+id).classList.add('open'));
+}
+function closeSheets(){
+  $('#veil').hidden=true;
+  document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
+}
+
+/* ---------- файлы и картинка ---------- */
+async function deliver(blob,name,type){
+  if(window.PlisAndroid&&window.PlisAndroid.saveFile){
+    const fr=new FileReader();
+    fr.onload=()=>window.PlisAndroid.saveFile(name,type,String(fr.result).split(',')[1]||'');
+    fr.readAsDataURL(blob);
+    return;
+  }
+  const file=new File([blob],name,{type});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'P.L.I.S.'});return;}
+  }catch(e){if(e&&e.name==='AbortError')return;}
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+function saveFile(){
+  deliver(new Blob([JSON.stringify(doc,null,1)],{type:'application/json'}),'plis-schema.json','application/json');
+}
+function openFile(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      const d=sanitize(JSON.parse(fr.result));
+      if(!d)throw 0;
+      const pre=snap();doc=d;sel=[];checkpoint(pre);fit();toast('Схема открыта');
+    }catch(e){toast('Не получилось открыть: это не файл схемы');}
+  };
+  fr.readAsText(file);
+}
+function exportPNG(){
+  const b=bounds();
+  if(!b){toast('Схема пустая — сохранять нечего');return;}
+  const pad=2.5,x0=b.x0-pad,y0=b.y0-pad,w=b.x1-b.x0+pad*2,h=b.y1-b.y0+pad*2,k=40;
+  const W=Math.round(w*k),H=Math.round(h*k);
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="${x0} ${y0} ${w} ${h}"><style>:root{--ink:#14233A;--paper:#ffffff;--accent:#0A8FB8}${SCENE_CSS}</style><rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#ffffff"/><g style="color:#14233A">${sceneSVG(false)}</g></svg>`;
+  const img=new Image();
+  img.onload=()=>{
+    const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+    const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,W,H);g.drawImage(img,0,0,W,H);
+    cv.toBlob(bl=>{if(bl)deliver(bl,'plis-schema.png','image/png');else toast('Не удалось сделать картинку');},'image/png');
+  };
+  img.onerror=()=>toast('Не удалось сделать картинку');
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+
+/* ---------- каталог деталей ---------- */
+function thumb(type){
+  if(type==='text')return `<svg viewBox="0 0 4 2" aria-hidden="true">${T(2,1,'Aa',1.3,'st','middle')}</svg>`;
+  if(S[type].ic)return `<svg viewBox="-2.5 -1.5 5 3" aria-hidden="true"><g class="sym"><rect x="-1.2" y="-1" width="2.4" height="2"/><path d="M-2 -.6H-1.2M-2 0H-1.2M-2 .6H-1.2M1.2 -.6H2M1.2 0H2M1.2 .6H2"/></g></svg>`;
+  const b=S[type].box;
+  let w=b[2]-b[0]+.6,h=b[3]-b[1]+.6;
+  const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2;
+  w=Math.max(w,4);h=Math.max(h,2.4);
+  return `<svg viewBox="${cx-w/2} ${cy-h/2} ${w} ${h}" aria-hidden="true"><g class="sym">${S[type].draw(0)}</g></svg>`;
+}
+$('#parts').innerHTML=GROUPS.map(([title,items])=>`<div class="grp">${title}</div>`+items.map(t=>`<button class="part" data-type="${t}">${thumb(t)}<span>${S[t].name}</span></button>`).join('')).join('');
+$('#parts').addEventListener('click',e=>{const b=e.target.closest('.part');if(b)addPart(b.dataset.type);});
+
+/* ---------- кнопки ---------- */
+$('#t-select').onclick=()=>setTool('select');
+$('#t-wire').onclick=()=>setTool('wire');
+$('#t-node').onclick=()=>setTool('node');
+$('#t-parts').onclick=()=>openSheet('sheet-parts');
+$('#t-rotate').onclick=rotateSel;
+$('#t-label').onclick=editSel;
+$('#t-delete').onclick=deleteSel;
+$('#b-undo').onclick=doUndo;
+$('#b-redo').onclick=doRedo;
+$('#b-menu').onclick=()=>openSheet('sheet-menu');
+$('#veil').onclick=closeSheets;
+$('#z-in').onclick=()=>{const r=board.getBoundingClientRect();zoomAt(r.width/2,r.height/2,1.25);};
+$('#z-out').onclick=()=>{const r=board.getBoundingClientRect();zoomAt(r.width/2,r.height/2,.8);};
+$('#z-fit').onclick=fit;
+$('.menu').addEventListener('click',async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  closeSheets();
+  const a=b.dataset.act;
+  if(a==='new'){
+    const r=await ask({title:'Новая схема',text:'Текущая схема будет очищена. Вернуть её можно кнопкой «Отменить».',ok:'Очистить'});
+    if(r){mutate(()=>{doc.comps=[];doc.wires=[];doc.nodes=[];sel=[];});fit();hint('Нажмите «Детали», чтобы добавить первую деталь');}
+  }
+  if(a==='all'){tool='select';sel=[...doc.comps.map(c=>({k:'c',id:c.id})),...doc.wires.map(w=>({k:'w',id:w.id})),...(doc.nodes||[]).map(n=>({k:'n',id:n.id}))];syncUI();render();hint('Выбрано всё: '+sel.length);}
+  if(a==='save')saveFile();
+  if(a==='open')$('#file').click();
+  if(a==='png')exportPNG();
+});
+$('#file').onchange=e=>{const f=e.target.files[0];if(f)openFile(f);e.target.value='';};
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo();}
+  else if(e.key==='Delete'||e.key==='Backspace')deleteSel();
+  else if(e.key==='r'||e.key==='к')rotateSel();
+});
+window.addEventListener('resize',render);
+window.plisBack=()=>{
+  const m=$('#modal');
+  if(!m.hidden){const b=m.querySelector('[data-a=no]');if(b)b.click();return true;}
+  if(!$('#veil').hidden){closeSheets();return true;}
+  return false;
+};
+
+/* ---------- запуск ---------- */
+(function start(){
+  let d=null;
+  try{const t=localStorage.getItem(KEY)||localStorage.getItem(OLD_KEY);if(t)d=sanitize(JSON.parse(t));}catch(e){}
+  const first=!d;
+  doc=d||example();
+  syncUI();
+  requestAnimationFrame(()=>{
+    fit();
+    hint(first?'Это пример схемы. Нажмите «Детали», чтобы добавить свои':'Схема восстановлена',4500);
+  });
+})();
+})();
+</script>
+</body>
+</html>
