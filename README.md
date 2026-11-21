@@ -100,3 +100,10 @@ Copyright © 2026 команда S.T.A.R.K.
 It ships ~60 GOST/IEC symbols (drawn from scratch), orthogonal wires, nodes, box selection, undo, and export to
 JSON/PNG. No network permission, no third‑party libraries, no Gradle: `./build.sh` builds a signed APK with the
 Android SDK command-line tools. Licensed under **GPL-2.0-only**. Not affiliated with sPlan.
+
+## Скриншоты интерфейса
+![Скриншот1](1.png)
+![Скриншот2](2.png)
+![Скриншот3](3.png)
+![Скриншот4](4.png)
+![Скриншот5](5.png)
