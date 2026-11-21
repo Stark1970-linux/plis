@@ -107,3 +107,4 @@ Android SDK command-line tools. Licensed under **GPL-2.0-only**. Not affiliated 
 ![Скриншот3](3.png)
 ![Скриншот4](4.png)
 ![Скриншот5](5.png)
+![Скриншот6](6.png)
